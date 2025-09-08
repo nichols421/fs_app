@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
-import '../services/nfc_service.dart';
+// Update this import to match your chosen service in main.dart
+import '../services/nfc_service.dart'; // or simple_nfc_service.dart
 import '../providers/checklist_provider.dart';
 import '../models/checklist_data.dart';
 import 'equipment_setup_screen.dart';
@@ -51,7 +52,37 @@ class _HomeScreenState extends State<HomeScreen> {
     final checklistProvider = Provider.of<ChecklistProvider>(context, listen: false);
 
     try {
+      // Show scanning dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              const Text('Hold your device near the RFID tag...'),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () {
+                  nfcService.stopSession();
+                  Navigator.of(context).pop();
+                  setState(() {
+                    _isScanning = false;
+                  });
+                },
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+        ),
+      );
+
       final result = await nfcService.readFromTag();
+
+      // Close scanning dialog
+      Navigator.of(context).pop();
 
       setState(() {
         _isScanning = false;
@@ -60,6 +91,12 @@ class _HomeScreenState extends State<HomeScreen> {
       if (result != null) {
         if (result.equipment == null) {
           // Empty tag - go to equipment setup
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Empty tag detected - Setting up new equipment'),
+              backgroundColor: Colors.blue,
+            ),
+          );
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => const EquipmentSetupScreen(),
@@ -67,6 +104,12 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         } else {
           // Load existing checklist data
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Loaded equipment: ${result.equipment!.partName}'),
+              backgroundColor: Colors.green,
+            ),
+          );
           checklistProvider.loadChecklistData(result);
           Navigator.of(context).push(
             MaterialPageRoute(
@@ -77,15 +120,21 @@ class _HomeScreenState extends State<HomeScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Failed to read RFID tag'),
+            content: Text('Failed to read RFID tag - please try again'),
             backgroundColor: Colors.red,
           ),
         );
       }
     } catch (e) {
+      // Close scanning dialog if open
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
       setState(() {
         _isScanning = false;
       });
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error scanning RFID: $e'),
@@ -110,9 +159,9 @@ class _HomeScreenState extends State<HomeScreen> {
           TextButton.icon(
             onPressed: () => authService.logout(),
             icon: const Icon(Icons.logout, color: Colors.white),
-            label: Text(
+            label: const Text(
               'Logout',
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: Colors.white),
             ),
           ),
         ],
