@@ -5,8 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:signature/signature.dart';
 import '../providers/checklist_provider.dart';
 import '../services/auth_service.dart';
-// Update this import to match your chosen service in main.dart
-import '../services/nfc_service.dart'; // or simple_nfc_service.dart
+import '../services/real_nfc_service.dart'; // Updated import
 
 class SignatureScreen extends StatefulWidget {
   const SignatureScreen({super.key});
@@ -66,41 +65,10 @@ class _SignatureScreenState extends State<SignatureScreen> {
         final checklistProvider = Provider.of<ChecklistProvider>(context, listen: false);
         checklistProvider.setSignature(signatureBase64);
 
-        // Show saving dialog
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 16),
-                const Text('Hold your device near the RFID tag to complete...'),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () {
-                    final nfcService = Provider.of<NFCService>(context, listen: false);
-                    nfcService.stopSession();
-                    Navigator.of(context).pop();
-                    setState(() {
-                      _isSaving = false;
-                    });
-                  },
-                  child: const Text('Cancel'),
-                ),
-              ],
-            ),
-          ),
-        );
-
         // Save final data to RFID tag
-        final nfcService = Provider.of<NFCService>(context, listen: false);
+        final nfcService = Provider.of<RealNFCService>(context, listen: false);
         final finalData = checklistProvider.getCurrentData();
         final success = await nfcService.writeToTag(finalData);
-
-        // Close saving dialog
-        Navigator.of(context).pop();
 
         setState(() {
           _isSaving = false;
@@ -118,11 +86,6 @@ class _SignatureScreenState extends State<SignatureScreen> {
         }
       }
     } catch (e) {
-      // Close saving dialog if open
-      if (Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
-
       setState(() {
         _isSaving = false;
       });

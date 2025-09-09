@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/checklist_provider.dart';
 import '../services/auth_service.dart';
-// Update this import to match your chosen service in main.dart
-import '../services/nfc_service.dart'; // or simple_nfc_service.dart
+import '../services/real_nfc_service.dart'; // Updated import
 import 'task_detail_screen.dart';
 import 'signature_screen.dart';
 
@@ -23,74 +22,26 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
     });
 
     final checklistProvider = Provider.of<ChecklistProvider>(context, listen: false);
-    final nfcService = Provider.of<NFCService>(context, listen: false);
+    final nfcService = Provider.of<RealNFCService>(context, listen: false);
 
-    try {
-      // Show saving dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 16),
-              const Text('Hold your device near the RFID tag to save...'),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () {
-                  nfcService.stopSession();
-                  Navigator.of(context).pop();
-                  setState(() {
-                    _isSaving = false;
-                  });
-                },
-                child: const Text('Cancel'),
-              ),
-            ],
-          ),
+    final currentData = checklistProvider.getCurrentData();
+    final success = await nfcService.writeToTag(currentData);
+
+    setState(() {
+      _isSaving = false;
+    });
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Progress saved to RFID tag successfully!'),
+          backgroundColor: Colors.green,
         ),
       );
-
-      final currentData = checklistProvider.getCurrentData();
-      final success = await nfcService.writeToTag(currentData);
-
-      // Close saving dialog
-      Navigator.of(context).pop();
-
-      setState(() {
-        _isSaving = false;
-      });
-
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Progress saved to RFID tag successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to save progress to RFID tag'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      // Close saving dialog if open
-      if (Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
-
-      setState(() {
-        _isSaving = false;
-      });
-
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error saving to RFID: $e'),
+        const SnackBar(
+          content: Text('Failed to save progress to RFID tag'),
           backgroundColor: Colors.red,
         ),
       );

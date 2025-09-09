@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
-// Update this import to match your chosen service in main.dart
-import '../services/nfc_service.dart'; // or simple_nfc_service.dart
+import '../services/real_nfc_service.dart'; // Updated import
 import '../providers/checklist_provider.dart';
 import '../models/checklist_data.dart';
 import 'equipment_setup_screen.dart';
@@ -26,7 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _checkNFCAvailability() async {
-    final nfcService = Provider.of<NFCService>(context, listen: false);
+    final nfcService = Provider.of<RealNFCService>(context, listen: false);
     final available = await nfcService.isNFCAvailable();
     setState(() {
       _nfcAvailable = available;
@@ -48,41 +47,11 @@ class _HomeScreenState extends State<HomeScreen> {
       _isScanning = true;
     });
 
-    final nfcService = Provider.of<NFCService>(context, listen: false);
+    final nfcService = Provider.of<RealNFCService>(context, listen: false); // Updated type
     final checklistProvider = Provider.of<ChecklistProvider>(context, listen: false);
 
     try {
-      // Show scanning dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 16),
-              const Text('Hold your device near the RFID tag...'),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () {
-                  nfcService.stopSession();
-                  Navigator.of(context).pop();
-                  setState(() {
-                    _isScanning = false;
-                  });
-                },
-                child: const Text('Cancel'),
-              ),
-            ],
-          ),
-        ),
-      );
-
       final result = await nfcService.readFromTag();
-
-      // Close scanning dialog
-      Navigator.of(context).pop();
 
       setState(() {
         _isScanning = false;
@@ -91,12 +60,6 @@ class _HomeScreenState extends State<HomeScreen> {
       if (result != null) {
         if (result.equipment == null) {
           // Empty tag - go to equipment setup
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Empty tag detected - Setting up new equipment'),
-              backgroundColor: Colors.blue,
-            ),
-          );
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => const EquipmentSetupScreen(),
@@ -104,12 +67,6 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         } else {
           // Load existing checklist data
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Loaded equipment: ${result.equipment!.partName}'),
-              backgroundColor: Colors.green,
-            ),
-          );
           checklistProvider.loadChecklistData(result);
           Navigator.of(context).push(
             MaterialPageRoute(
@@ -120,21 +77,15 @@ class _HomeScreenState extends State<HomeScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Failed to read RFID tag - please try again'),
+            content: Text('Failed to read RFID tag'),
             backgroundColor: Colors.red,
           ),
         );
       }
     } catch (e) {
-      // Close scanning dialog if open
-      if (Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
-
       setState(() {
         _isScanning = false;
       });
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error scanning RFID: $e'),
@@ -159,9 +110,9 @@ class _HomeScreenState extends State<HomeScreen> {
           TextButton.icon(
             onPressed: () => authService.logout(),
             icon: const Icon(Icons.logout, color: Colors.white),
-            label: const Text(
+            label: Text(
               'Logout',
-              style: TextStyle(color: Colors.white),
+              style: const TextStyle(color: Colors.white),
             ),
           ),
         ],
